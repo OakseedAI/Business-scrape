@@ -28,14 +28,31 @@ def load_db():
     if os.path.exists(DB_FILE):
         try:
             df = pd.read_excel(DB_FILE)
+            
+            # Migration check: if old columns exist, map them to new columns
+            migration_map = {
+                'Automation Status': 'Matched Keywords',
+                'Likely Lacks Automation': 'Is Valid Lead'
+            }
+            migrated = False
+            for old_col, new_col in migration_map.items():
+                if old_col in df.columns:
+                    df = df.rename(columns={old_col: new_col})
+                    migrated = True
+                    
             # Ensure required columns are present
             required_cols = [
                 'Company Name', 'City', 'Business Type', 'Phone', 'Email', 
-                'Website', 'Automation Status', 'Likely Lacks Automation', 'Status', 'Drafted Email'
+                'Website', 'Matched Keywords', 'Is Valid Lead', 'Status', 'Drafted Email'
             ]
             for col in required_cols:
                 if col not in df.columns:
-                    df[col] = "" if col != 'Likely Lacks Automation' else "Yes"
+                    df[col] = "" if col != 'Is Valid Lead' else "No"
+                    migrated = True
+                    
+            if migrated:
+                df.to_excel(DB_FILE, index=False)
+                
             return df
         except Exception as e:
             st.error(f"Error reading Excel database: {e}")
@@ -46,7 +63,7 @@ def load_db():
 def create_empty_db():
     df = pd.DataFrame(columns=[
         'Company Name', 'City', 'Business Type', 'Phone', 'Email', 
-        'Website', 'Automation Status', 'Likely Lacks Automation', 'Status', 'Drafted Email'
+        'Website', 'Matched Keywords', 'Is Valid Lead', 'Status', 'Drafted Email'
     ])
     df.to_excel(DB_FILE, index=False)
     return df
@@ -88,7 +105,7 @@ if 'selected_lead_idx' not in st.session_state:
 st.markdown("""
 <div class="main-header">
     <h1>🌱 OakSeedAI Outreach & Lead Panel</h1>
-    <p>NC Local Business Lead Scraper, Automation Auditor, and Custom Email Builder</p>
+    <p>NC Local Business Lead Scraper, Keyword Auditor, and Custom Email Builder</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -121,7 +138,7 @@ with tab1:
     
     # KPIs calculation
     total_leads = len(df)
-    leads_no_auto = len(df[df['Likely Lacks Automation'] == 'Yes'])
+    leads_valid = len(df[df['Is Valid Lead'] == 'Yes'])
     contacted_leads = len(df[df['Status'] == 'Warm lead - Contacted'])
     pending_leads = len(df[df['Status'] == 'New Lead'])
     
@@ -136,8 +153,8 @@ with tab1:
     with col2:
         st.markdown(f"""
         <div class="kpi-card" style="border-left-color: #52b788;">
-            <div class="kpi-title">Automation Targets (Likely None)</div>
-            <div class="kpi-value">{leads_no_auto}</div>
+            <div class="kpi-title">Qualified Leads (Match >= 2)</div>
+            <div class="kpi-value">{leads_valid}</div>
         </div>
         """, unsafe_allow_html=True)
     with col3:
@@ -157,13 +174,13 @@ with tab1:
 
     st.markdown("---")
     st.markdown("### 🔍 Scrape for New Local Businesses in NC")
-    st.markdown("Query local search engines for businesses in specific North Carolina regions. Our engine automatically checks their websites for automation tag signatures (like Calendly, HubSpot, etc.).")
+    st.markdown("Query local search engines for businesses in specific North Carolina regions. Our engine automatically checks their Home, About, Services, and Careers pages for high-intent operational/marketing keywords.")
     
     col_city, col_biz, col_max = st.columns([2, 2, 1])
     with col_city:
         city_input = st.text_input("NC Town / City", value="Raleigh", help="e.g. Raleigh, Durham, Cary, Apex, Wilmington, Charlotte")
     with col_biz:
-        biz_input = st.text_input("Business Type", value="Plumber", help="e.g. Plumber, HVAC, Bakery, Landscaping, Florist, Roofing")
+        biz_input = st.text_input("Business Type", value="Consulting", help="e.g. Plumber, HVAC, Bakery, Landscaping, Consulting, Marketing")
     with col_max:
         max_leads = st.number_input("Max Leads to Crawl", min_value=1, max_value=50, value=10)
         
@@ -171,7 +188,7 @@ with tab1:
         if not city_input or not biz_input:
             st.error("Please provide both a city and a business type to search.")
         else:
-            with st.spinner(f"Searching DuckDuckGo and crawling websites for '{biz_input}' in '{city_input}, NC'..."):
+            with st.spinner(f"Searching for '{biz_input}' in '{city_input}, NC' and scanning text arrays..."):
                 # Run lead search
                 new_leads = run_lead_search(city_input, biz_input, max_results=max_leads)
                 
@@ -215,9 +232,9 @@ with tab2:
                 "Phone": st.column_config.TextColumn("Phone"),
                 "Email": st.column_config.TextColumn("Email"),
                 "Website": st.column_config.LinkColumn("Website"),
-                "Automation Status": st.column_config.TextColumn("Automation Status", disabled=True),
-                "Likely Lacks Automation": st.column_config.SelectboxColumn(
-                    "Likely Lacks Automation", 
+                "Matched Keywords": st.column_config.TextColumn("Matched Keywords", disabled=True),
+                "Is Valid Lead": st.column_config.SelectboxColumn(
+                    "Is Valid Lead", 
                     options=["Yes", "No"], 
                     required=True
                 ),
@@ -304,11 +321,11 @@ with tab3:
                 lead_phone = st.text_input("Contact Phone", value=str(lead['Phone']) if pd.notna(lead['Phone']) else "")
             with col_l3:
                 # Badge rendering based on status
-                if lead['Likely Lacks Automation'] == 'Yes':
-                    st.markdown("""<span class="badge badge-green">High Priority: Likely No Automations</span>""", unsafe_allow_html=True)
+                if lead['Is Valid Lead'] == 'Yes':
+                    st.markdown("""<span class="badge badge-green">High Priority: Qualified Lead</span>""", unsafe_allow_html=True)
                 else:
-                    st.markdown("""<span class="badge badge-yellow">Medium Priority: Some Scripts Found</span>""", unsafe_allow_html=True)
-                st.write(f"Automation audit: *{lead['Automation Status']}*")
+                    st.markdown("""<span class="badge badge-yellow">Medium Priority: Low Keyword Match</span>""", unsafe_allow_html=True)
+                st.write(f"Matched Keywords: *{lead['Matched Keywords']}*")
                 
             st.markdown("---")
             
@@ -332,7 +349,6 @@ with tab3:
             email_body = st.text_area("Email Body", value=draft_content, height=350)
             
             # Create a mailto URL for desktop mail client opening
-            # URL encoding params
             encoded_subject = urllib.parse.quote(email_subject)
             encoded_body = urllib.parse.quote(email_body)
             mailto_link = f"mailto:{lead_email}?subject={encoded_subject}&body={encoded_body}"
@@ -351,7 +367,7 @@ with tab3:
             col_actions1, col_actions2, col_actions3 = st.columns(3)
             
             with col_actions1:
-                # Mail client launcher (Primary option)
+                # Mail client launcher
                 if lead_email:
                     st.link_button("📤 Open Email Client (mailto:)", mailto_link, type="primary")
                     st.caption("Launches your default desktop mail application with this pre-filled message.")
@@ -361,8 +377,6 @@ with tab3:
             with col_actions2:
                 # Copy draft clipboard
                 st.button("📋 Copy Email Body to Clipboard")
-                # Wait, Streamlit text_area natively has copy buttons in some UI layouts, 
-                # but we can save changes when this is clicked.
                 if st.button("💾 Save Edits (Draft Only)"):
                     update_lead_record()
                     st.success("Draft edits saved!")
@@ -376,7 +390,6 @@ with tab3:
                     # Try to advance queue to next item
                     active_cnt = len(active_leads_df)
                     if active_cnt > 1:
-                        # Index is 0-indexed on the filtered df list
                         st.session_state['selected_lead_idx'] = min(st.session_state['selected_lead_idx'], active_cnt - 2)
                     else:
                         st.session_state['selected_lead_idx'] = 0
