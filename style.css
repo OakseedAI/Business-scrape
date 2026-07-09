@@ -1,0 +1,174 @@
+/* OakSeedAI Premium Stylesheet for Streamlit Dashboard */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+/* Apply Global Fonts */
+html, body, [class*="css"], .stApp {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Segoe UI', Roboto, sans-serif !important;
+    color: #1b4332 !important; /* Deep Oak Green */
+    font-weight: 600 !important;
+}
+
+/* App Header styling */
+.main-header {
+    background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
+    padding: 2rem;
+    border-radius: 16px;
+    color: white !important;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(27, 67, 50, 0.15);
+}
+
+.main-header h1 {
+    color: #f4f9f4 !important;
+    margin: 0;
+    font-size: 2.2rem !important;
+    font-weight: 700 !important;
+}
+
+.main-header p {
+    color: #b7e4c7;
+    margin: 0.5rem 0 0 0;
+    font-size: 1.1rem;
+}
+
+/* Premium KPI Card Grid */
+.kpi-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    flex: 1;
+    border-left: 5px solid #1b4332;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.kpi-title {
+    font-size: 0.9rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.kpi-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1b4332;
+    margin-top: 0.5rem;
+}
+
+/* Lead Cards in Human Check Queue */
+.lead-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.lead-card:hover {
+    transform: translateX(4px);
+    border-color: #52b788;
+    box-shadow: 0 4px 15px rgba(82, 183, 136, 0.12);
+}
+
+.lead-card.active {
+    border-color: #1b4332;
+    background-color: #f4f9f4;
+    border-left: 6px solid #1b4332;
+}
+
+.lead-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1b4332;
+    margin-bottom: 0.25rem;
+}
+
+.lead-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+}
+
+/* Chips / Badges */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 50px;
+    text-transform: uppercase;
+}
+
+.badge-green {
+    background-color: #d8f3dc;
+    color: #1b4332;
+}
+
+.badge-yellow {
+    background-color: #fefae0;
+    color: #b78a02;
+}
+
+.badge-blue {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+/* Customizing Streamlit components to match theme */
+div[data-baseweb="tab-list"] {
+    gap: 1rem;
+}
+
+button[id^="tabs-bui"] {
+    background-color: transparent !important;
+    border: none !important;
+    color: #6c757d !important;
+    font-weight: 500 !important;
+    font-size: 1rem !important;
+    padding: 0.5rem 1rem !important;
+    border-bottom: 2px solid transparent !important;
+    transition: all 0.2s ease;
+}
+
+button[id^="tabs-bui"][aria-selected="true"] {
+    color: #1b4332 !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid #1b4332 !important;
+}
+
+/* Form inputs & areas styling */
+.stTextArea textarea {
+    font-family: 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+    border-radius: 8px !important;
+    border: 1px solid #ced4da !important;
+}
+
+.stTextArea textarea:focus {
+    border-color: #1b4332 !important;
+    box-shadow: 0 0 0 0.2rem rgba(27, 67, 50, 0.15) !important;
+}
