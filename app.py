@@ -9,7 +9,7 @@ CSS_FILE = 'style.css'
 
 # Page configurations
 st.set_page_config(
-    page_title="OakSeedAI - Lead Generation & Outreach Panel",
+    page_title="OakSeedAI - Strategic Lead Engine",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -104,8 +104,8 @@ if 'selected_lead_idx' not in st.session_state:
 # App Header
 st.markdown("""
 <div class="main-header">
-    <h1>🌱 OakSeedAI Outreach & Lead Panel</h1>
-    <p>NC Local Business Lead Scraper, Keyword Auditor, and Custom Email Builder</p>
+    <h1>🌱 Strategic Lead Engine</h1>
+    <p>On-demand B2B lead discovery and keyword matching pipeline.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -173,14 +173,14 @@ with tab1:
         """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### 🔍 Scrape for New Local Businesses in NC")
-    st.markdown("Query local search engines for businesses in specific North Carolina regions. Our engine automatically checks their Home, About, Services, and Careers pages for high-intent operational/marketing keywords.")
+    st.markdown("### 🔍 Discover Local Leads in NC")
+    st.markdown("Query organic search engines for local services. Our system crawls business websites (homepage + About/Services/Careers subpages) and filters out informational/reference content automatically.")
     
     col_city, col_biz, col_max = st.columns([2, 2, 1])
     with col_city:
         city_input = st.text_input("NC Town / City", value="Raleigh", help="e.g. Raleigh, Durham, Cary, Apex, Wilmington, Charlotte")
     with col_biz:
-        biz_input = st.text_input("Business Type", value="Consulting", help="e.g. Plumber, HVAC, Bakery, Landscaping, Consulting, Marketing")
+        biz_input = st.text_input("Business Type", value="Landscaping", help="e.g. Plumber, HVAC, Bakery, Landscaping, Consulting, Marketing")
     with col_max:
         max_leads = st.number_input("Max Leads to Crawl", min_value=1, max_value=50, value=10)
         
@@ -188,7 +188,7 @@ with tab1:
         if not city_input or not biz_input:
             st.error("Please provide both a city and a business type to search.")
         else:
-            with st.spinner(f"Searching for '{biz_input}' in '{city_input}, NC' and scanning text arrays..."):
+            with st.spinner(f"Searching for '{biz_input}' in '{city_input}, NC' and matching keywords..."):
                 # Run lead search
                 new_leads = run_lead_search(city_input, biz_input, max_results=max_leads)
                 
@@ -207,69 +207,93 @@ with tab1:
                     
                     # Refresh Session State DB
                     st.session_state['db'] = load_db()
-                    st.success(f"Scraping complete! Crawled {len(new_leads)} businesses. Added {added_count} new unique leads to the database.")
+                    st.success(f"Scraping complete! Added {added_count} new unique leads to the database.")
                     st.rerun()
                 else:
                     st.warning("No new matching business websites could be found or parsed for this query.")
 
 # ================= TAB 2: Lead Directory (Spreadsheet) =================
 with tab2:
-    st.markdown("### 📋 Leads Spreadsheet Database")
-    st.markdown("Double-click cells below to manually fix emails, phone numbers, or update statuses, then click **'Save Grid Changes'** to persist modifications.")
+    st.markdown("### 📋 Lead Directory & Maintenance")
     
     current_db = st.session_state['db']
     
     if current_db.empty:
         st.info("The database is currently empty. Run a scrape in the first tab to discover leads!")
     else:
-        # Edit sheet directly using Streamlit data editor
-        edited_df = st.data_editor(
-            current_db, 
-            column_config={
-                "Company Name": st.column_config.TextColumn("Company Name", disabled=True),
-                "City": st.column_config.TextColumn("City", disabled=True),
-                "Business Type": st.column_config.TextColumn("Business Type", disabled=True),
-                "Phone": st.column_config.TextColumn("Phone"),
-                "Email": st.column_config.TextColumn("Email"),
-                "Website": st.column_config.LinkColumn("Website"),
-                "Matched Keywords": st.column_config.TextColumn("Matched Keywords", disabled=True),
-                "Is Valid Lead": st.column_config.SelectboxColumn(
-                    "Is Valid Lead", 
-                    options=["Yes", "No"], 
-                    required=True
-                ),
-                "Status": st.column_config.SelectboxColumn(
-                    "Status",
-                    options=["New Lead", "Warm lead - Contacted", "Archived"],
-                    required=True
-                ),
-                "Drafted Email": st.column_config.TextColumn("Drafted Email")
-            },
-            hide_index=True,
-            num_rows="dynamic",
-            use_container_width=True
-        )
-        
-        col_s1, col_s2 = st.columns([1, 4])
-        with col_s1:
-            if st.button("💾 Save Grid Changes", type="primary"):
-                st.session_state['db'] = edited_df
-                save_db(edited_df)
-                st.success("Excel sheet database updated and saved successfully!")
-                st.rerun()
+        # Maintenance Bulk Button Panel
+        col_m1, col_m2 = st.columns([2, 3])
+        with col_m1:
+            # Bulk Purge Button
+            if st.button("🧹 Purge Incomplete Leads", type="primary", use_container_width=True, help="Instantly delete any leads missing email OR phone details."):
+                is_missing_email = current_db['Email'].isna() | (current_db['Email'].astype(str).str.strip() == "")
+                is_missing_phone = current_db['Phone'].isna() | (current_db['Phone'].astype(str).str.strip() == "")
+                to_purge = is_missing_email | is_missing_phone
+                purged_count = to_purge.sum()
                 
-        with col_s2:
-            # Download xlsx button
+                if purged_count > 0:
+                    cleaned_db = current_db[~to_purge]
+                    st.session_state['db'] = cleaned_db
+                    save_db(cleaned_db)
+                    st.success(f"Successfully purged {purged_count} incomplete leads!")
+                    st.rerun()
+                else:
+                    st.info("No incomplete leads found. All current entries contain email and phone contact info.")
+                    
+        with col_m2:
             try:
                 with open(DB_FILE, "rb") as file:
                     st.download_button(
                         label="📥 Download Excel Spreadsheet (.xlsx)",
                         data=file,
-                        file_name="nc_leads.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        file_name="strategic_leads.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
                     )
             except FileNotFoundError:
                 pass
+                
+        st.markdown("---")
+        
+        # Interactive registry with inline deletion
+        st.markdown("### 🛠️ Lead Registry Console")
+        st.write("Directly edit contact info or delete individual entries permanently from the database:")
+        
+        for idx, row in current_db.iterrows():
+            with st.container():
+                c1, c2, c3, c4 = st.columns([3, 3, 3, 1])
+                with c1:
+                    st.markdown(f"##### {row['Company Name']}")
+                    st.caption(f"🌐 [Website]({row['Website']}) | 📍 {row['City']}, NC | Category: {row['Business Type']}")
+                    if row['Is Valid Lead'] == 'Yes':
+                        st.markdown("""<span class="badge badge-green" style="font-size:0.7rem; padding: 0.1rem 0.4rem;">Qualified</span>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown("""<span class="badge badge-yellow" style="font-size:0.7rem; padding: 0.1rem 0.4rem;">Unqualified</span>""", unsafe_allow_html=True)
+                with c2:
+                    st.write("**Matched Keywords:**")
+                    st.caption(f"`{row['Matched Keywords']}`")
+                with c3:
+                    # Inline text fields for quick edits
+                    new_email = st.text_input("Email", value=str(row['Email']) if pd.notna(row['Email']) else "", key=f"email_{idx}")
+                    new_phone = st.text_input("Phone", value=str(row['Phone']) if pd.notna(row['Phone']) else "", key=f"phone_{idx}")
+                with c4:
+                    st.write("") # Spacing helper
+                    st.write("")
+                    if st.button("🗑️ Delete", key=f"del_{idx}", type="secondary", use_container_width=True):
+                        updated_db = current_db.drop(idx)
+                        st.session_state['db'] = updated_db
+                        save_db(updated_db)
+                        st.toast(f"Deleted {row['Company Name']}!")
+                        st.rerun()
+                        
+                # Update DB if inputs are changed
+                if new_email != str(row['Email']) or new_phone != str(row['Phone']):
+                    current_db.at[idx, 'Email'] = new_email
+                    current_db.at[idx, 'Phone'] = new_phone
+                    st.session_state['db'] = current_db
+                    save_db(current_db)
+                    st.toast("Saved changes!")
+            st.markdown("<hr style='margin: 0.5rem 0; opacity: 0.2;'/>", unsafe_allow_html=True)
 
 # ================= TAB 3: Human Check & Outreach =================
 with tab3:
@@ -316,9 +340,8 @@ with tab3:
                 st.markdown(f"**🌐 Website:** [Visit Site]({lead['Website']})")
                 st.markdown(f"**📍 Location:** {lead['City']}, NC")
             with col_l2:
-                # Allow user to edit email and phone directly
-                lead_email = st.text_input("Contact Email", value=str(lead['Email']) if pd.notna(lead['Email']) else "")
-                lead_phone = st.text_input("Contact Phone", value=str(lead['Phone']) if pd.notna(lead['Phone']) else "")
+                lead_email = st.text_input("Contact Email", value=str(lead['Email']) if pd.notna(lead['Email']) else "", key="check_email")
+                lead_phone = st.text_input("Contact Phone", value=str(lead['Phone']) if pd.notna(lead['Phone']) else "", key="check_phone")
             with col_l3:
                 # Badge rendering based on status
                 if lead['Is Valid Lead'] == 'Yes':
@@ -338,7 +361,6 @@ with tab3:
             # Handle draft text loading or regeneration
             draft_content = lead['Drafted Email']
             if not draft_content or pd.isna(draft_content) or "[Your Name]" in draft_content:
-                # Regenerate with current settings
                 draft_content = default_email_template(
                     lead['Company Name'], 
                     lead['City'], 
@@ -355,7 +377,6 @@ with tab3:
             
             # Save progress callback
             def update_lead_record(new_status=None):
-                # Update cells in DataFrame
                 df.at[selected_idx_main, 'Email'] = lead_email
                 df.at[selected_idx_main, 'Phone'] = lead_phone
                 df.at[selected_idx_main, 'Drafted Email'] = email_body
@@ -367,7 +388,6 @@ with tab3:
             col_actions1, col_actions2, col_actions3 = st.columns(3)
             
             with col_actions1:
-                # Mail client launcher
                 if lead_email:
                     st.link_button("📤 Open Email Client (mailto:)", mailto_link, type="primary")
                     st.caption("Launches your default desktop mail application with this pre-filled message.")
@@ -375,14 +395,12 @@ with tab3:
                     st.warning("Cannot generate mailto link without a contact email. Please enter one above.")
                     
             with col_actions2:
-                # Copy draft clipboard
                 st.button("📋 Copy Email Body to Clipboard")
                 if st.button("💾 Save Edits (Draft Only)"):
                     update_lead_record()
                     st.success("Draft edits saved!")
                     
             with col_actions3:
-                # Update status in db
                 if st.button("✅ Approve & Mark Contacted"):
                     update_lead_record(new_status="Warm lead - Contacted")
                     st.success(f"Status for '{lead['Company Name']}' updated to: Warm lead - Contacted")

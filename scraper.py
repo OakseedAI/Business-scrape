@@ -48,26 +48,48 @@ def get_domain(url):
         return ""
 
 def is_valid_business_url(url):
-    """Check if the URL belongs to an actual business website rather than a directory, search engine, or blog."""
+    """Check if the URL belongs to an actual business website rather than a directory, search engine, blog, or reference site."""
     domain = get_domain(url)
     if not domain:
         return False
     
-    # Check if domain or parts of domain match excluded domains
+    # 1. Aggressive Domain Exclusion Filter
+    # Strictly ignore educational, generic informational, and reference sites
+    exclusion_words = ['wikipedia.org', 'britannica.com', 'dictionary.com', 'edu', '.gov', 'wiki', 'forum', 'blog', 'directory', 'search']
+    if any(word in domain for word in exclusion_words):
+        return False
+    
+    # 2. Exclude standard directories and social media
     for d in EXCLUDED_DOMAINS:
         if d in domain:
             return False
-            
-    # Exclude directories, search engines, wikis, blogs, forums
-    exclusion_words = ['directory', 'search', 'blog', 'wiki', 'forum']
-    if any(word in domain for word in exclusion_words):
-        return False
         
     # Avoid files, images, etc.
     if any(url.lower().endswith(ext) for ext in ['.pdf', '.jpg', '.png', '.gif', '.zip']):
         return False
         
     return True
+
+def is_informational_content(url, soup):
+    """Detect if a page is a high-level educational/informational article about a trade rather than a commercial page."""
+    url_lower = url.lower()
+    
+    # 1. Check URL path patterns
+    info_path_patterns = ['/how-to/', '/history-of/', '/what-is/', '/definition-of/', '/explanation-of/', '/articles/', '/blog/']
+    if any(pattern in url_lower for pattern in info_path_patterns):
+        return True
+        
+    # 2. Check page title for informational/educational trade phrases
+    title = soup.title.text.lower() if soup and soup.title else ""
+    info_phrases = [
+        "how to", "history of", "what is", "definition of", "explanation of", 
+        "guide to", "how does", "how do", "overview of", "understanding the",
+        "about electricity", "about plumbing"
+    ]
+    if any(phrase in title for phrase in info_phrases):
+        return True
+        
+    return False
 
 def fetch_html(url, timeout=10):
     """Fetch HTML content with standard browser headers."""
@@ -176,14 +198,22 @@ def crawl_business_site(url):
         'emails': [],
         'phones': [],
         'matched_keywords': [],
-        'is_valid_lead': 'No'
+        'is_valid_lead': 'No',
+        'is_skipped': False
     }
     
     html = fetch_html(url)
     if not html:
+        result['is_skipped'] = True
         return result
         
     soup = BeautifulSoup(html, 'html.parser')
+    
+    # Contextual Relevance Rule
+    if is_informational_content(url, soup):
+        print(f"Skipping informational/educational page: {url}")
+        result['is_skipped'] = True
+        return result
     
     # Extract contacts and homepage text
     emails, phones = extract_contact_info(soup, html, url)
@@ -223,7 +253,6 @@ def crawl_business_site(url):
 
 def run_lead_search(city, business_type, max_results=15):
     """Query Mojeek (primary) and DuckDuckGo (fallback) for local businesses, crawl sites, and compile results."""
-    # Build query
     search_query = f"{business_type} {city} NC"
     print(f"Running search for query: {search_query}")
     
@@ -273,7 +302,6 @@ def run_lead_search(city, business_type, max_results=15):
             print(f"Error querying DuckDuckGo: {e}")
             
     # 3. Fallback to Simulated Mock Leads if BOTH searches were blocked or returned 0 results
-    # This guarantees the app remains fully functional and testable even when rate-limited.
     if not search_results:
         print("Search engines blocked or returned no results. Generating simulated local leads for testing...")
         city_clean = re.sub(r'[^a-zA-Z0-9]', '', city).lower()
@@ -349,7 +377,9 @@ def run_lead_search(city, business_type, max_results=15):
         
         # Crawl the business site
         crawl_data = crawl_business_site(url)
-        
+        if crawl_data.get('is_skipped'):
+            continue # Skip informational pages immediately
+            
         # Formulate the email address (prefer crawling, fallback to searching snippets)
         email = crawl_data['emails'][0] if crawl_data['emails'] else ""
         if not email and snippet:
