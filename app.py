@@ -92,6 +92,7 @@ Best regards,
 
 {sender_name}
 OakSeedAI
+OakseedAI@outlook.com
 Raleigh, NC"""
 
 # Initialize session states
@@ -111,8 +112,8 @@ st.markdown("""
 
 # Sidebar settings & Scrape options
 st.sidebar.markdown("### ⚙️ Outreach & Agency Settings")
-sender_name = st.sidebar.text_input("Sender Name", value="Alex", help="Your name as it appears in the drafted emails.")
-custom_sig = st.sidebar.text_area("Email Signature Addendum", value="OakSeedAI\nBased out of Raleigh, NC", height=80)
+sender_name = st.sidebar.text_input("Sender Name", value="Ann", help="Your name as it appears in the drafted emails.")
+custom_sig = st.sidebar.text_area("Email Signature Addendum", value="OakSeedAI\nOakseedAI@outlook.com\nBased out of Raleigh, NC", height=80)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🧹 Database Maintenance")
@@ -373,7 +374,7 @@ with tab3:
             # Create a mailto URL for desktop mail client opening
             encoded_subject = urllib.parse.quote(email_subject)
             encoded_body = urllib.parse.quote(email_body)
-            mailto_link = f"mailto:{lead_email}?subject={encoded_subject}&body={encoded_body}"
+            mailto_link = f"mailto:{lead_email}?subject={encoded_subject}&body={encoded_body}&bcc=OakseedAI@outlook.com"
             
             # Save progress callback
             def update_lead_record(new_status=None):
