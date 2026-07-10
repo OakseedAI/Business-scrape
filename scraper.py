@@ -252,42 +252,77 @@ def crawl_business_site(url):
     return result
 
 def run_lead_search(city, business_type, max_results=15):
-    """Query Mojeek (primary) and DuckDuckGo (fallback) for local businesses, crawl sites, and compile results."""
-    search_query = f"{business_type} {city} NC"
-    print(f"Running search for query: {search_query}")
+    """Query Google Search (primary), Mojeek (fallback), and DuckDuckGo (fallback) for local businesses, crawl sites, and compile results."""
+    # Build Google Search query matching user's reference code
+    google_query = f"{business_type} {city} NC business OR company OR agency"
+    print(f"Running Google search for query: {google_query}")
     
     leads = []
     scraped_count = 0
     search_results = []
     
-    # 1. Try Mojeek Search (very script-friendly)
+    # 1. Try Google Search Crawler (directly matching user's pattern)
     try:
-        url = f"https://www.mojeek.com/search?q={urllib.parse.quote(search_query)}"
+        url = f"https://www.google.com/search?q={urllib.parse.quote(google_query)}&num={max_results * 2}"
         r = requests.get(url, headers=HEADERS, timeout=10)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, 'html.parser')
-            for h2 in soup.find_all(['h2', 'h3']):
-                a = h2.find('a', href=True)
-                if a:
-                    href = a['href']
-                    if href.startswith('http') and is_valid_business_url(href):
-                        title = a.text.strip()
-                        company_name = clean_company_name(title)
-                        search_results.append({
-                            'url': href,
-                            'title': company_name,
-                            'snippet': ''
-                        })
-            print(f"Mojeek returned {len(search_results)} candidates.")
+            # Extract items matching user's .g selector logic
+            for g in soup.find_all('div', class_='g'):
+                title_tag = g.find('h3')
+                link_tag = g.find('a')
+                snippet_tag = g.find('div', class_='VwiC3b')
+                
+                if title_tag and link_tag:
+                    title = title_tag.get_text()
+                    link = link_tag['href']
+                    snippet = snippet_tag.get_text() if snippet_tag else ""
+                    
+                    if link.startswith('http') and is_valid_business_url(link):
+                        # Apply user's custom title/snippet business filters
+                        if any(word in title.lower() or snippet.lower() for word in ["llc", "inc", "llp", "events", "marketing", "consulting", "agency", "service"]):
+                            company_name = clean_company_name(title)
+                            search_results.append({
+                                'url': link,
+                                'title': company_name,
+                                'snippet': snippet
+                            })
+            print(f"Google Search returned {len(search_results)} candidates.")
     except Exception as e:
-        print(f"Error querying Mojeek: {e}")
-        
-    # 2. Fallback to DuckDuckGo search if Mojeek failed
+        print(f"Error querying Google Search: {e}")
+
+    # 2. Try Mojeek Search fallback if Google returned nothing (blocked or rate-limited)
+    if not search_results:
+        print("Google search returned no candidates (blocked/empty), trying Mojeek fallback...")
+        try:
+            mojeek_query = f"{business_type} {city} NC"
+            url = f"https://www.mojeek.com/search?q={urllib.parse.quote(mojeek_query)}"
+            r = requests.get(url, headers=HEADERS, timeout=10)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, 'html.parser')
+                for h2 in soup.find_all(['h2', 'h3']):
+                    a = h2.find('a', href=True)
+                    if a:
+                        href = a['href']
+                        if href.startswith('http') and is_valid_business_url(href):
+                            title = a.text.strip()
+                            company_name = clean_company_name(title)
+                            search_results.append({
+                                'url': href,
+                                'title': company_name,
+                                'snippet': ''
+                            })
+                print(f"Mojeek fallback returned {len(search_results)} candidates.")
+        except Exception as e:
+            print(f"Error querying Mojeek fallback: {e}")
+
+    # 3. Fallback to DuckDuckGo search if Mojeek also failed
     if not search_results:
         print("Mojeek returned no candidates, trying DuckDuckGo fallback...")
         try:
+            ddg_query = f"{business_type} {city} NC"
             with DDGS() as ddgs:
-                ddg_results = ddgs.text(f"{search_query} website", max_results=max_results * 2)
+                ddg_results = ddgs.text(f"{ddg_query} website", max_results=max_results * 2)
                 for r in ddg_results:
                     url = r.get('href')
                     if url and is_valid_business_url(url):
@@ -301,7 +336,7 @@ def run_lead_search(city, business_type, max_results=15):
         except Exception as e:
             print(f"Error querying DuckDuckGo: {e}")
             
-    # 3. Fallback to Simulated Mock Leads if BOTH searches were blocked or returned 0 results
+    # 4. Fallback to Simulated Mock Leads if ALL search engines are blocked
     if not search_results:
         print("Search engines blocked or returned no results. Generating simulated local leads for testing...")
         city_clean = re.sub(r'[^a-zA-Z0-9]', '', city).lower()
@@ -340,7 +375,6 @@ def run_lead_search(city, business_type, max_results=15):
             }
         ]
         
-        # Append mock candidates
         for cand in simulated_candidates[:max_results]:
             leads.append({
                 'Company Name': cand['title'],
@@ -378,7 +412,7 @@ def run_lead_search(city, business_type, max_results=15):
         # Crawl the business site
         crawl_data = crawl_business_site(url)
         if crawl_data.get('is_skipped'):
-            continue # Skip informational pages immediately
+            continue # Skip informational page
             
         # Formulate the email address (prefer crawling, fallback to searching snippets)
         email = crawl_data['emails'][0] if crawl_data['emails'] else ""
